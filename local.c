@@ -1183,7 +1183,7 @@ static int read_device_name(struct iio_device *dev)
 
 static int add_attr_to_device(struct iio_device *dev, const char *attr)
 {
-	char **attrs, *name;
+	char **attrs, *name, *tmp;
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(device_attrs_blacklist); i++)
@@ -1206,6 +1206,15 @@ static int add_attr_to_device(struct iio_device *dev, const char *attr)
 	attrs[dev->nb_attrs++] = name;
 	dev->attrs = attrs;
 	DEBUG("Added attr \'%s\' to device \'%s\'\n", attr, dev->id);
+
+	for (i = dev->nb_attrs - 1; i > 0; i--) {
+		if (strcmp(attrs[i], attrs[i-1]) < 0) {
+			tmp = attrs[i];
+			attrs[i] = attrs[i-1];
+			attrs[i-1] = tmp;
+		}
+	}
+
 	return 0;
 }
 
@@ -1314,7 +1323,9 @@ static int add_attr_to_channel(struct iio_channel *chn,
 		const char *attr, const char *path, bool is_scan_element)
 {
 	struct iio_channel_attr *attrs;
-	char *fn, *name = get_short_attr_name(chn, attr);
+	char *fn, *name = get_short_attr_name(chn, attr), *tmp1, *tmp2;
+	unsigned int i;
+
 	if (!name)
 		return -ENOMEM;
 
@@ -1340,6 +1351,18 @@ static int add_attr_to_channel(struct iio_channel *chn,
 	attrs[chn->nb_attrs++].name = name;
 	chn->attrs = attrs;
 	DEBUG("Added attr \'%s\' to channel \'%s\'\n", name, chn->id);
+
+	for (i = chn->nb_attrs - 1; i > 0;  i--) {
+		if (strcmp(attrs[i].name, attrs[i-1].name) < 0) {
+			tmp1 = attrs[i].filename;
+			tmp2 = attrs[i].name;
+			attrs[i].filename = attrs[i-1].filename;
+			attrs[i].name = attrs[i-1].name;
+			attrs[i-1].filename = tmp1;
+			attrs[i-1].name = tmp2;
+		}
+	}
+
 	return 0;
 
 err_free_fn:
@@ -1352,6 +1375,8 @@ err_free_name:
 static int add_channel_to_device(struct iio_device *dev,
 		struct iio_channel *chn)
 {
+	struct iio_channel *tmp;
+	unsigned int i;
 	struct iio_channel **channels = realloc(dev->channels,
 			(dev->nb_channels + 1) * sizeof(struct iio_channel *));
 	if (!channels)
@@ -1360,12 +1385,23 @@ static int add_channel_to_device(struct iio_device *dev,
 	channels[dev->nb_channels++] = chn;
 	dev->channels = channels;
 	DEBUG("Added channel \'%s\' to device \'%s\'\n", chn->id, dev->id);
+
+	for (i = dev->nb_channels - 1;  i > 0; i--) {
+		if ((strcmp(channels[i]->id, channels[i-1]->id) < 0) ||
+		    (strcmp(channels[i]->id, channels[i-1]->id) == 0 && ! channels[i]->is_output)) {
+			tmp = channels[i];
+			channels[i] = channels[i-1];
+			channels[i-1] = tmp;
+		}
+	}
 	return 0;
 }
 
 static int add_device_to_context(struct iio_context *ctx,
 		struct iio_device *dev)
 {
+	unsigned int i;
+	struct iio_device *tmp;
 	struct iio_device **devices = realloc(ctx->devices,
 			(ctx->nb_devices + 1) * sizeof(struct iio_device *));
 	if (!devices)
@@ -1374,6 +1410,14 @@ static int add_device_to_context(struct iio_context *ctx,
 	devices[ctx->nb_devices++] = dev;
 	ctx->devices = devices;
 	DEBUG("Added device \'%s\' to context \'%s\'\n", dev->id, ctx->name);
+
+	for (i = ctx->nb_devices - 1; i > 0; i--) {
+		if (strcmp(devices[i]->id, devices[i-1]->id) < 0) {
+			tmp = devices[i];
+			devices[i] = devices[i-1];
+			devices[i-1] = tmp;
+		}
+	}
 	return 0;
 }
 
@@ -1579,7 +1623,7 @@ static int add_buffer_attr(void *d, const char *path)
 {
 	struct iio_device *dev = (struct iio_device *) d;
 	const char *name = strrchr(path, '/') + 1;
-	char **attrs, *attr;
+	char **attrs, *attr, *tmp;
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(buffer_attrs_reserved); i++)
@@ -1599,6 +1643,14 @@ static int add_buffer_attr(void *d, const char *path)
 	attrs[dev->nb_buffer_attrs++] = attr;
 	dev->buffer_attrs = attrs;
 	DEBUG("Added buffer attr \'%s\' to device \'%s\'\n", attr, dev->id);
+
+	for (i = dev->nb_buffer_attrs - 1; i > 0; i--) {
+		if (strcmp(attrs[i], attrs[i-1]) < 0) {
+			tmp = attrs[i];
+			attrs[i] = attrs[i-1];
+			attrs[i-1] = tmp;
+		}
+	}
 	return 0;
 }
 
